@@ -1,0 +1,21 @@
+{
+  "name": "adonis-log-viewer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "app/backend",
+    "app/frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w frontend",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "build:frontend": "npm run build -w frontend",
+    "build:backend": "npm run build -w backend",
+    "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "oxlint": "^1.12.0"
+  }
+}
