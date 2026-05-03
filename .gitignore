@@ -1,3 +1,6 @@
+# Package TS build output at repo root
+/dist
+
 # Logs
 logs
 *.log

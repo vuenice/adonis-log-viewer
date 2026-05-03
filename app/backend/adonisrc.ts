@@ -52,6 +52,7 @@ export default defineConfig({
     () => import('@adonisjs/lucid/database_provider'),
     () => import('@adonisjs/cors/cors_provider'),
     () => import('@adonisjs/auth/auth_provider'),
+    () => import('vue-nice-logs/provider'),
     () => import('#providers/api_provider'),
   ],
 
@@ -93,22 +94,6 @@ export default defineConfig({
     ],
     forceExit: false,
   },
-
-  /*
-  |--------------------------------------------------------------------------
-  | Metafiles
-  |--------------------------------------------------------------------------
-  |
-  | A collection of files you want to copy to the build folder when creating
-  | the production build.
-  |
-  */
-  metaFiles: [
-    {
-      pattern: 'resources/logs_viewer/**',
-      reloadServer: false,
-    },
-  ],
 
   hooks: {
     init: [

@@ -1,0 +1,43 @@
+{
+  "name": "adonis-log-viewer-example-adonis",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Sample Adonis 7 app that installs adonis-log-viewer from the repo root via file:.. (same as npm install ../ from this folder)",
+  "scripts": {
+    "start": "node bin/server.js",
+    "build": "node ace.js build",
+    "dev": "concurrently -k -n adonis,vite -c blue,green \"node ace.js serve --watch\" \"npm --prefix .. run dev -w frontend\"",
+    "dev:server": "node ace.js serve --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "imports": {
+    "#exceptions/*": "./app/exceptions/*.js",
+    "#middleware/*": "./app/middleware/*.js",
+    "#start/*": "./start/*.js",
+    "#config/*": "./config/*.js"
+  },
+  "dependencies": {
+    "@adonisjs/core": "^7.3.1",
+    "reflect-metadata": "^0.2.2",
+    "adonis-log-viewer": "file:.."
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "@adonisjs/assembler": "^8.4.0",
+    "@adonisjs/tsconfig": "^2.0.0",
+    "@poppinss/ts-exec": "^1.4.4",
+    "@types/node": "~22.13.14",
+    "hot-hook": "^1.0.0",
+    "pino-pretty": "^13.1.3",
+    "typescript": "~6.0.2",
+    "vite": "^6.1.1",
+    "youch": "^4.1.1"
+  },
+  "hotHook": {
+    "boundaries": [
+      "./app/middleware/*.ts"
+    ]
+  }
+}

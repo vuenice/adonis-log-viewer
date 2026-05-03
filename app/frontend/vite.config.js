@@ -15,7 +15,7 @@ export default defineConfig({
   base: '/logs/assets/',
   build: {
     emptyOutDir: true,
-    outDir: resolve(import.meta.dirname, '..', 'backend', 'resources', 'logs_viewer'),
+    outDir: resolve(import.meta.dirname, '..', '..', 'resources', 'logs_viewer'),
     sourcemap: false,
     cssCodeSplit: false,
     rollupOptions: {

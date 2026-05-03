@@ -1,21 +1,22 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import app from '@adonisjs/core/services/app'
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { dirname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import mime from 'mime-types'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const publicRoot = normalize(join(__dirname, '../../resources/logs_viewer'))
+const publicRoot = normalize(
+  join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'resources', 'logs_viewer')
+)
 
 export default class LogsViewerController {
-  async index({ response }: HttpContext) {
+  async index({ response, containerResolver }: HttpContext) {
     response.type('text/html; charset=utf-8')
 
-    if (!app.inProduction) {
+    const appInstance = (await containerResolver.make('app')) as { inProduction: boolean }
+
+    if (!appInstance.inProduction) {
       const viteOrigin = process.env.LOGS_VITE_ORIGIN ?? 'http://localhost:5173'
-      // Frontend Vite is configured with `base: '/logs/assets/'`
       const viteBase = process.env.LOGS_VITE_BASE ?? '/logs/assets'
 
       return `<!doctype html>

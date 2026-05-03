@@ -1,6 +1,4 @@
-const e = document.getElementById('app')
-if (e) {
-  e.innerHTML = `
+const e=document.getElementById("app");e&&(e.innerHTML=`
     <main class="wrap">
       <header class="header">
         <h1>Logs viewer</h1>
@@ -10,5 +8,4 @@ if (e) {
         <p>If you can see this page, routes and assets are wired correctly.</p>
       </section>
     </main>
-  `
-}
+  `);

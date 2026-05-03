@@ -1,21 +1,65 @@
 {
-  "name": "adonis-log-viewer",
-  "private": true,
-  "version": "0.0.0",
+  "name": "vue-nice-logs",
+  "version": "0.1.0",
+  "description": "AdonisJS log viewer — browser UI and API for logs under your app's logs directory",
   "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "adonisjs",
+    "adonisjs-package",
+    "logs",
+    "log viewer",
+    "vue"
+  ],
+  "engines": {
+    "node": ">=20.6.0",
+    "npm": ">=10.0.0"
+  },
+  "main": "./dist/providers/vue_nice_logs_provider.js",
+  "types": "./dist/providers/vue_nice_logs_provider.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/providers/vue_nice_logs_provider.d.ts",
+      "default": "./dist/providers/vue_nice_logs_provider.js"
+    },
+    "./provider": {
+      "types": "./dist/providers/vue_nice_logs_provider.d.ts",
+      "default": "./dist/providers/vue_nice_logs_provider.js"
+    }
+  },
+  "files": [
+    "dist/controllers",
+    "dist/providers",
+    "resources/logs_viewer"
+  ],
+  "peerDependencies": {
+    "@adonisjs/core": "^7.3.0"
+  },
+  "dependencies": {
+    "mime-types": "^3.0.1"
+  },
   "workspaces": [
     "app/backend",
-    "app/frontend"
+    "app/frontend",
+    "example"
   ],
   "scripts": {
     "dev": "npm run dev -w frontend",
     "dev:frontend": "npm run dev -w frontend",
     "dev:backend": "npm run dev -w backend",
+    "build": "npm run build:frontend && npm run build:package",
     "build:frontend": "npm run build -w frontend",
+    "build:package": "tsc -p tsconfig.package.json",
     "build:backend": "npm run build -w backend",
+    "prepublishOnly": "npm run build",
     "lint": "npm run lint --workspaces"
   },
   "devDependencies": {
-    "oxlint": "^1.12.0"
+    "@adonisjs/core": "^7.3.1",
+    "@adonisjs/tsconfig": "^2.0.0",
+    "@types/mime-types": "^2.1.4",
+    "@types/node": "~22.13.14",
+    "oxlint": "^1.12.0",
+    "typescript": "~6.0.2"
   }
 }

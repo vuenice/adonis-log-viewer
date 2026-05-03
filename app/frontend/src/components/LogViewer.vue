@@ -1,6 +1,6 @@
 <script setup>
 /* Imports */
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import LogSidebar from './LogSidebar.vue'
 import LogTable from './LogTable.vue'
 import LogCounters from './LogCounters.vue'
@@ -15,93 +15,175 @@ import {
 const isDarkMode = ref(false)
 const isSettingsOpen = ref(false)
 
-// Search, sorting, pagination
+// Search + sorting (applies to current chunk)
 const searchTerm = ref('')
 const sortField = ref('')
 const sortDir = ref(null) // 'asc' or 'desc'
-const currentPage = ref(1)
-const pageSize = ref(12)
+const pageSize = ref(200)
 
-/* Example list of log files (sidebar) */
-const logFiles = ref([
-{ name: 'laravel.log', size: '1.2MB' },
-        { name: 'system.log', size: '3.4MB' },
-        { name: 'app.log', size: '500kB' },
-        { name: 'nginx.log', size: '2.2MB' },
-        { name: 'db.log', size: '4.1MB' },
-        { name: 'laravel.log', size: '1.2MB' },
-        { name: 'system.log', size: '3.4MB' },
-        { name: 'app.log', size: '500kB' },
-        { name: 'nginx.log', size: '2.2MB' },
-        { name: 'db.log', size: '4.1MB' },{ name: 'laravel.log', size: '1.2MB' },
-        { name: 'system.log', size: '3.4MB' },
-        { name: 'app.log', size: '500kB' },
-        { name: 'nginx.log', size: '2.2MB' },
-        { name: 'db.log', size: '4.1MB' },{ name: 'laravel.log', size: '1.2MB' },
-        { name: 'system.log', size: '3.4MB' },
-        { name: 'app.log', size: '500kB' },
-        { name: 'nginx.log', size: '2.2MB' },
-        { name: 'db.log', size: '4.1MB' },{ name: 'laravel.log', size: '1.2MB' },
-        { name: 'system.log', size: '3.4MB' },
-        { name: 'app.log', size: '500kB' },
-        { name: 'nginx.log', size: '2.2MB' },
-        { name: 'db.log', size: '4.1MB' },
-])
+const logFiles = ref([])
+const activeFile = ref('')
+const columns = ref([])
+const logs = ref([])
+const cursor = ref(0)
+const nextCursor = ref(null)
+const cursorHistory = ref([])
+const lineCount = ref(null)
+const isLoadingFiles = ref(false)
+const isLoadingLogs = ref(false)
+const isCountingLines = ref(false)
+const errorMessage = ref('')
 
-/* Example logs data */
-const logs = ref([
-{ level: 'Debug',   time: '09:00:12', env: 'local',       description: 'Debug message #1' },
-      { level: 'Info',    time: '09:05:33', env: 'production',  description: 'Info message #2' },
-      { level: 'Warning', time: '09:10:45', env: 'staging',     description: 'Warning message #3' },
-      { level: 'Error',   time: '09:20:12', env: 'local',       description: 'Error message #4' },
-      { level: 'Debug',   time: '09:22:56', env: 'production',  description: 'Debug message #5' },
-      { level: 'Info',    time: '09:30:10', env: 'production',  description: 'Info message #6' },
-      { level: 'Warning', time: '09:35:27', env: 'staging',     description: 'Warning message #7' },
-      { level: 'Error',   time: '09:40:55', env: 'local',       description: 'Error message #8' },
-      { level: 'Debug',   time: '09:45:00', env: 'local',       description: 'Debug message #9' },
-      { level: 'Info',    time: '09:50:33', env: 'production',  description: 'Info message #10' },
+/** Pino / Adonis JSON logs use numeric levels (e.g. 30 = info). Map to counter buckets. */
+function levelBucket(level) {
+  const s = String(level ?? '').trim().toLowerCase()
+  if (s === 'error' || s === 'fatal' || s === '50' || s === '60') return 'error'
+  if (s === 'warn' || s === 'warning' || s === '40') return 'warning'
+  if (s === 'info' || s === '30') return 'info'
+  if (s === 'debug' || s === 'trace' || s === '10' || s === '20') return 'debug'
+  const n = Number(level)
+  if (Number.isFinite(n)) {
+    if (n >= 50) return 'error'
+    if (n >= 40) return 'warning'
+    if (n >= 30) return 'info'
+    return 'debug'
+  }
+  if (s === '') return null
+  return null
+}
 
-      { level: 'Warning', time: '09:55:45', env: 'staging',     description: 'Warning message #11' },
-      { level: 'Error',   time: '10:00:12', env: 'local',       description: 'Error message #12' },
-      { level: 'Debug',   time: '10:05:12', env: 'production',  description: 'Debug message #13' },
-      { level: 'Info',    time: '10:10:33', env: 'production',  description: 'Info message #14' },
-      { level: 'Warning', time: '10:15:45', env: 'staging',     description: 'Warning message #15' },
-      { level: 'Error',   time: '10:20:12', env: 'local',       description: 'Error message #16' },
-      { level: 'Debug',   time: '10:22:56', env: 'production',  description: 'Debug message #17' },
-      { level: 'Info',    time: '10:30:21', env: 'production',  description: 'Info message #18' },
-      { level: 'Warning', time: '10:35:12', env: 'staging',     description: 'Warning message #19' },
-      { level: 'Error',   time: '10:40:55', env: 'local',       description: 'Error message #20' },
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return ''
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let idx = 0
+  let v = bytes
+  while (v >= 1024 && idx < units.length - 1) {
+    v /= 1024
+    idx++
+  }
+  return `${v.toFixed(idx === 0 ? 0 : 1)}${units[idx]}`
+}
 
-      {
-         level: 'Debug',   time: '10:45:00', env: 'local',       description: 'Debug message #21' },
-      { level: 'Info',    time: '10:50:33', env: 'production',  description: 'Info message #22' },
-      { level: 'Warning', time: '10:55:45', env: 'staging',     description: 'Warning message #23' },
-      { level: 'Error',   time: '11:00:12', env: 'local',       description: 'Error message #24' },
-      { level: 'Debug',   time: '11:05:12', env: 'production',  description: 'Debug message #25' },
-      { level: 'Info',    time: '11:10:33', env: 'production',  description: 'Info message #26' },
-      { level: 'Warning', time: '11:15:45', env: 'staging',     description: 'Warning message #27' },
-      { level: 'Error',   time: '11:20:12', env: 'local',       description: 'Error message #28' },
-      { level: 'Debug',   time: '11:22:56', env: 'production',  description: 'Debug message #29' },
-      { level: 'Info',    time: '11:30:21', env: 'production',  description: 'Info message #30' },
-      {
-         level: 'Debug',   time: '10:45:00', env: 'local',       description: 'Debug message #21' },
-      { level: 'Info',    time: '10:50:33', env: 'production',  description: 'Info message #22' },
-      { level: 'Warning', time: '10:55:45', env: 'staging',     description: 'Warning message #23' },
-      { level: 'Error',   time: '11:00:12', env: 'local',       description: 'Error message #24' },
-      { level: 'Debug',   time: '11:05:12', env: 'production',  description: 'Debug message #25' },
-      { level: 'Info',    time: '11:10:33', env: 'production',  description: 'Info message #26' },
-      { level: 'Warning', time: '11:15:45', env: 'staging',     description: 'Warning message #27' },
-      { level: 'Error',   time: '11:20:12', env: 'local',       description: 'Error message #28' },
-      { level: 'Debug',   time: '11:22:56', env: 'production',  description: 'Debug message #29' },
-      { level: 'Info',    time: '11:30:21', env: 'production',  description: 'Info message #30' },
-])
+async function apiGet(path, params = {}) {
+  const url = new URL(path, window.location.origin)
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === '') continue
+    if (Array.isArray(v)) {
+      for (const item of v) url.searchParams.append(k, String(item))
+      continue
+    }
+    url.searchParams.set(k, String(v))
+  }
+  const res = await fetch(url.toString(), { headers: { accept: 'application/json' } })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `Request failed: ${res.status}`)
+  }
+  return await res.json()
+}
+
+async function loadFiles() {
+  isLoadingFiles.value = true
+  errorMessage.value = ''
+  try {
+    const data = await apiGet('/api/v1/logs/files')
+    logFiles.value = (data.files ?? []).map((f) => ({
+      name: f.name,
+      size: formatBytes(f.size),
+      _rawSize: f.size,
+      mtimeMs: f.mtimeMs,
+    }))
+    if (!activeFile.value && logFiles.value.length) {
+      await openFile(logFiles.value[0])
+    }
+  } catch (e) {
+    errorMessage.value = e?.message ?? String(e)
+  } finally {
+    isLoadingFiles.value = false
+  }
+}
+
+async function openFile(file) {
+  if (!file?.name) return
+  activeFile.value = file.name
+  cursor.value = 0
+  nextCursor.value = null
+  cursorHistory.value = []
+  lineCount.value = null
+  errorMessage.value = ''
+
+  isLoadingLogs.value = true
+  try {
+    const data = await apiGet('/api/v1/logs/open', { file: file.name, limit: pageSize.value })
+    columns.value = data.columns ?? []
+    logs.value = data.rows ?? []
+    cursor.value = data.cursor ?? 0
+    nextCursor.value = data.nextCursor ?? null
+    sortField.value = ''
+    sortDir.value = null
+    searchTerm.value = ''
+  } catch (e) {
+    errorMessage.value = e?.message ?? String(e)
+    columns.value = []
+    logs.value = []
+  } finally {
+    isLoadingLogs.value = false
+  }
+
+  // lazy line counting (can be slow on huge files)
+  isCountingLines.value = true
+  apiGet('/api/v1/logs/count', { file: file.name })
+    .then((data) => {
+      lineCount.value = data.lineCount ?? null
+    })
+    .catch(() => {
+      lineCount.value = null
+    })
+    .finally(() => {
+      isCountingLines.value = false
+    })
+}
+
+async function loadChunk(targetCursor) {
+  if (!activeFile.value) return
+  isLoadingLogs.value = true
+  errorMessage.value = ''
+  try {
+    const data = await apiGet('/api/v1/logs/chunk', {
+      file: activeFile.value,
+      cursor: targetCursor,
+      limit: pageSize.value,
+      columns: columns.value,
+    })
+    columns.value = data.columns ?? columns.value
+    logs.value = data.rows ?? []
+    cursor.value = data.cursor ?? targetCursor
+    nextCursor.value = data.nextCursor ?? null
+  } catch (e) {
+    errorMessage.value = e?.message ?? String(e)
+  } finally {
+    isLoadingLogs.value = false
+  }
+}
+
+async function nextChunk() {
+  if (nextCursor.value === null || nextCursor.value === undefined) return
+  cursorHistory.value.push(cursor.value)
+  await loadChunk(nextCursor.value)
+}
+
+async function prevChunk() {
+  if (!cursorHistory.value.length) return
+  const prev = cursorHistory.value.pop()
+  await loadChunk(prev)
+}
 
 /* Computed: Filter logs by searchTerm */
 const filteredLogs = computed(() => {
   if (!searchTerm.value) return logs.value
   const term = searchTerm.value.toLowerCase()
-  return logs.value.filter(log =>
-    Object.values(log).some(val => String(val).toLowerCase().includes(term))
+  return logs.value.filter((log) =>
+    Object.values(log ?? {}).some((val) => String(val ?? '').toLowerCase().includes(term))
   )
 })
 
@@ -110,8 +192,8 @@ const sortedLogs = computed(() => {
   if (!sortField.value) return filteredLogs.value
   const sorted = [...filteredLogs.value]
   sorted.sort((a, b) => {
-    const valA = a[sortField.value]
-    const valB = b[sortField.value]
+    const valA = String(a?.[sortField.value] ?? '')
+    const valB = String(b?.[sortField.value] ?? '')
     if (valA < valB) return sortDir.value === 'asc' ? -1 : 1
     if (valA > valB) return sortDir.value === 'asc' ? 1 : -1
     return 0
@@ -119,25 +201,18 @@ const sortedLogs = computed(() => {
   return sorted
 })
 
-/* Computed: Paginated logs */
-const pagedLogs = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return sortedLogs.value.slice(start, end)
-})
-
-const totalPages = computed(() => {
-  return Math.ceil(filteredLogs.value.length / pageSize.value)
-})
-
-const startIndex = computed(() => {
-  return (currentPage.value - 1) * pageSize.value
-})
-
-const endIndex = computed(() => {
-  const idx = startIndex.value + pageSize.value
-  return idx > filteredLogs.value.length ? filteredLogs.value.length : idx
-})
+const debugCount = computed(
+  () => sortedLogs.value.filter((l) => levelBucket(l?.level) === 'debug').length
+)
+const infoCount = computed(
+  () => sortedLogs.value.filter((l) => levelBucket(l?.level) === 'info').length
+)
+const warningCount = computed(
+  () => sortedLogs.value.filter((l) => levelBucket(l?.level) === 'warning').length
+)
+const errorCount = computed(
+  () => sortedLogs.value.filter((l) => levelBucket(l?.level) === 'error').length
+)
 
 /* Methods */
 function toggleDarkMode() {
@@ -149,8 +224,7 @@ function openSettings() {
 }
 
 function handleSearch() {
-  // Reset to page 1 whenever search changes
-  currentPage.value = 1
+  // computed list updates automatically
 }
 
 function sortBy(field) {
@@ -161,36 +235,16 @@ function sortBy(field) {
     sortField.value = field
     sortDir.value = 'asc'
   }
-  currentPage.value = 1
-}
-
-function nextPage() {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++
-  }
-}
-
-function prevPage() {
-  if (currentPage.value > 1) {
-    currentPage.value--
-  }
-}
-
-function goToPage(p) {
-  currentPage.value = p
-}
-
-function onTimeSortChanged(direction) {
-  // direction is 'asc' or 'desc'
-  sortField.value = 'time'
-  sortDir.value = direction
-  currentPage.value = 1
 }
 
 function onPageSizeChanged(newSize) {
   pageSize.value = newSize
-  currentPage.value = 1
+  if (activeFile.value) openFile({ name: activeFile.value })
 }
+
+onMounted(() => {
+  loadFiles()
+})
 </script>
 
 <template>
@@ -200,6 +254,8 @@ function onPageSizeChanged(newSize) {
       <!-- LEFT SIDEBAR -->
       <LogSidebar
         :logFiles="logFiles"
+        :activeFile="activeFile"
+        @file-selected="openFile"
         class="sm:max-h-screen"
       />
 
@@ -209,10 +265,10 @@ function onPageSizeChanged(newSize) {
         <header class="flex items-center gap-4 mb-4">
           <!-- Counters (left) -->
           <LogCounters
-            :debugCount="2595"
-            :infoCount="2491"
-            :warningCount="2442"
-            :errorCount="2475"
+            :debugCount="debugCount"
+            :infoCount="infoCount"
+            :warningCount="warningCount"
+            :errorCount="errorCount"
           />
 
           <!-- Search + Icons (right) -->
@@ -244,47 +300,50 @@ function onPageSizeChanged(newSize) {
           </div>
         </header>
 
-        <!-- Log Table -->
-        <LogTable
-          :logs="pagedLogs"
-          :sortField="sortField"
-          :sortDir="sortDir"
-          @sort-by="sortBy"
-          @time-sort-changed="onTimeSortChanged"
-          @page-size-changed="onPageSizeChanged"
-        />
+        <div class="flex items-center justify-between mb-3 text-xs text-gray-600 dark:text-gray-300">
+          <div class="flex items-center gap-3 min-w-0">
+            <div v-if="activeFile" class="font-medium truncate">
+              {{ activeFile }}
+            </div>
+            <div v-if="isCountingLines" class="opacity-70">Counting lines…</div>
+            <div v-else-if="lineCount !== null" class="opacity-70">{{ lineCount }} lines</div>
+            <div v-if="isLoadingFiles" class="opacity-70">Loading files…</div>
+            <div v-if="isLoadingLogs" class="opacity-70">Loading logs…</div>
+          </div>
 
-        <!-- Pagination -->
-        <div class="flex items-center justify-center mt-4">
-          <div class="space-x-1">
+          <div class="flex items-center gap-2 shrink-0">
             <button
-              class="px-3 py-1 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-              :disabled="currentPage === 1"
-              @click="prevPage"
+              class="px-3 py-1 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40"
+              :disabled="!cursorHistory.length || isLoadingLogs"
+              @click="prevChunk"
             >
-              <ArrowLongLeftIcon class="w-4 h-4"/>
+              <ArrowLongLeftIcon class="w-4 h-4 inline-block" />
+              Prev chunk
             </button>
             <button
-              v-for="p in totalPages"
-              :key="p"
-              class="px-3 py-1"
-              :class="{
-                'border-t-emerald-400 border-t-2 text-emerald-400': p === currentPage,
-                'hover:bg-gray-200 text-gray-600 dark:text-gray-300 dark:hover:bg-gray-700': p !== currentPage
-              }"
-              @click="goToPage(p)"
+              class="px-3 py-1 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40"
+              :disabled="nextCursor === null || isLoadingLogs"
+              @click="nextChunk"
             >
-              {{ p }}
-            </button>
-            <button
-              class="px-3 py-1 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-              :disabled="currentPage === totalPages"
-              @click="nextPage"
-            >
-              <ArrowLongRightIcon class="w-4 h-4"/>
+              Next chunk
+              <ArrowLongRightIcon class="w-4 h-4 inline-block" />
             </button>
           </div>
         </div>
+
+        <div v-if="errorMessage" class="mb-3 p-2 rounded bg-red-50 text-red-700 text-xs">
+          {{ errorMessage }}
+        </div>
+
+        <!-- Log Table -->
+        <LogTable
+          :columns="columns"
+          :logs="sortedLogs"
+          :sortField="sortField"
+          :sortDir="sortDir"
+          @sort-by="sortBy"
+          @page-size-changed="onPageSizeChanged"
+        />
       </div>
     </div>
   </div>

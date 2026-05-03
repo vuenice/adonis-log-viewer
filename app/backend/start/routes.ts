@@ -11,18 +11,9 @@ import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 import { controllers } from '#generated/controllers'
 
-const LogsViewerController = () => import('#controllers/logs_viewer_controller')
-
 router.get('/', () => {
   return { hello: 'world' }
 })
-
-router
-  .group(() => {
-    router.get('/', [LogsViewerController, 'index'])
-    router.get('/assets/*', [LogsViewerController, 'asset'])
-  })
-  .prefix('/logs')
 
 router
   .group(() => {

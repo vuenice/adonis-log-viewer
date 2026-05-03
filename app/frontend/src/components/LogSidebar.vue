@@ -1,6 +1,6 @@
 <!-- LogSidebar.vue -->
 <script setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
 
 // Define props
 const props = defineProps({
@@ -8,16 +8,21 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  activeFile: {
+    type: String,
+    default: '',
+  },
 })
 
-// Active index (previously data() { return { activeIndex: 0 } })
-const activeIndex = ref(0)
+const emit = defineEmits(['file-selected'])
 
-// Methods
-function selectFile(index) {
-  activeIndex.value = index
-  // Optionally emit an event: e.g. file-selected
-  // emit('file-selected', props.logFiles[index])
+const activeIndex = computed(() => {
+  if (!props.activeFile) return -1
+  return props.logFiles.findIndex((f) => f?.name === props.activeFile)
+})
+
+function selectFile(file) {
+  emit('file-selected', file)
 }
 </script>
 
@@ -33,7 +38,7 @@ function selectFile(index) {
       <div
         v-for="(file, index) in props.logFiles"
         :key="file.name"
-        @click="selectFile(index)"
+        @click="selectFile(file)"
         :class="[
           'flex items-center px-4 py-1 rounded cursor-pointer',
           'hover:bg-gray-100 dark:hover:bg-gray-700',
