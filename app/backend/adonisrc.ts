@@ -52,7 +52,7 @@ export default defineConfig({
     () => import('@adonisjs/lucid/database_provider'),
     () => import('@adonisjs/cors/cors_provider'),
     () => import('@adonisjs/auth/auth_provider'),
-    () => import('vue-nice-logs/provider'),
+    () => import('adonis-log-viewer/provider'),
     () => import('#providers/api_provider'),
   ],
 

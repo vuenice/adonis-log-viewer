@@ -60,8 +60,8 @@ There are two ways people use Adonis Log Viewer: **run the full project from Git
 1. Clone:
 
    ```bash
-   git clone https://github.com/<your-org>/vue-nice-logs.git
-   cd vue-nice-logs
+   git clone https://github.com/<your-org>/adonis-log-viewer.git
+   cd adonis-log-viewer
    ```
 
 2. Install from the repo root:
@@ -89,30 +89,30 @@ Adonis Log Viewer is an **npm package**: it bundles compiled server code (`dist/
 1. **Add the dependency** (examples):
 
    ```bash
-   npm install vue-nice-logs
+   npm install adonis-log-viewer
    ```
 
    ```bash
-   npm install ../path/to/vue-nice-logs
+   npm install ../path/to/adonis-log-viewer
    ```
 
    ```bash
-   npm link vue-nice-logs
+   npm link adonis-log-viewer
    ```
 
-   For **`npm link`** or a **path install** of this monorepo, run **`npm install`** then **`npm run build`** inside **vue-nice-logs** first so **`dist/`** and **`resources/logs_viewer/`** exist (the linked folder must look like what gets published). In this repository, the demo app pins the package with **`file:../..`** in **`app/backend/package.json`**.
+   For **`npm link`** or a **path install** of this monorepo, run **`npm install`** then **`npm run build`** inside **adonis-log-viewer** first so **`dist/`** and **`resources/logs_viewer/`** exist (the linked folder must look like what gets published). In this repository, the demo app pins the package with **`file:../..`** in **`app/backend/package.json`**.
 
 2. **Register the provider** in **`adonisrc.ts`** alongside your other providers:
 
    ```ts
-   () => import('vue-nice-logs/provider'),
+   () => import('adonis-log-viewer/provider'),
    ```
 
 3. **CORS** — If the UI is loaded from another origin, allow it in **`config/cors.ts`** (this demo includes **`CORS_ORIGIN`** in **`.env.example`**).
 
 Restart your server and open **`{APP_URL}/logs`**.
 
-**Peers:** **`@adonisjs/core`** **^7.3** is already required by Adonis apps. **`mime-types`** is a dependency of **vue-nice-logs**; you do **not** add it separately.
+**Peers:** **`@adonisjs/core`** **^7.3** is already required by Adonis apps. **`mime-types`** is a dependency of **adonis-log-viewer**; you do **not** add it separately.
 
 ---
 
@@ -172,9 +172,9 @@ Log files are read from **`logs/`** at the Adonis application root (`app.makePat
 
 ## Integrating into your Adonis app
 
-After **`npm install vue-nice-logs`**:
+After **`npm install adonis-log-viewer`**:
 
-1. Add **`() => import('vue-nice-logs/provider')`** to **`providers`** in **`adonisrc.ts`**.
+1. Add **`() => import('adonis-log-viewer/provider')`** to **`providers`** in **`adonisrc.ts`**.
 2. **`files` published with the package:** route registration is handled by **`VueNiceLogsProvider`** (**`start`** hook → **`Router`**).
 
 If you fork and change **`/logs`**, update **`base`** in **`app/frontend/vite.config.js`**, **`npm run build`** at repo root (so **`resources/logs_viewer/`** and matching URLs stay aligned), and adjust the prefixes in **`src/providers/vue_nice_logs_provider.ts`** before **`npm publish`** / linking.
@@ -190,8 +190,8 @@ If you fork and change **`/logs`**, update **`base`** in **`app/frontend/vite.co
 
 ### Blank page at `/logs` in production
 
-- Ensure **`node_modules/vue-nice-logs/resources/logs_viewer/app.js`** and **`app.css`** exist (included in the published tarball).
-- **`npm link` / folder install**: run **`npm run build`** in **vue-nice-logs** so those files are generated locally.
+- Ensure **`node_modules/adonis-log-viewer/resources/logs_viewer/app.js`** and **`app.css`** exist (included in the published tarball).
+- **`npm link` / folder install**: run **`npm run build`** in **adonis-log-viewer** so those files are generated locally.
 - Check the browser network tab for 404s on **`/logs/assets/...`**.
 
 ### Dev mode can’t load Vite scripts

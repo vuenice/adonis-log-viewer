@@ -18,8 +18,8 @@ Contributions are welcome in many forms: issues, documentation, spreading the wo
 Fork this repository, then clone your fork and enter the directory:
 
 ```bash
-git clone https://github.com/<YOUR-USERNAME>/vue-nice-logs.git
-cd vue-nice-logs
+git clone https://github.com/<YOUR-USERNAME>/adonis-log-viewer.git
+cd adonis-log-viewer
 ```
 
 ### Step 2 — Install dependencies

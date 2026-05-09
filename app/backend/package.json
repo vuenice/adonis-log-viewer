@@ -63,7 +63,7 @@
     "@vinejs/vine": "^4.3.1",
     "better-sqlite3": "^12.9.0",
     "luxon": "^3.7.2",
-    "vue-nice-logs": "file:../..",
+    "adonis-log-viewer": "file:../..",
     "reflect-metadata": "^0.2.2"
   },
   "hotHook": {
