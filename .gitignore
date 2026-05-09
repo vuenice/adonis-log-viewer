@@ -1,6 +1,10 @@
 # Package TS build output at repo root
 /dist
 
+# Log viewer SPA build output from Vite (npm run build / build:frontend)
+**/logs_viewer/app.js
+**/logs_viewer/app.css
+resources/logs_viewer/*
 # Logs
 logs
 *.log
