@@ -152,7 +152,7 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
-In development, the HTML shell at `/logs` loads scripts from the Vite dev server (see **Configuration**).
+By default in development, `/logs` uses the **same-origin** built UI at **`/logs/assets/*`** (no separate Vite process). Enable **`LOGS_VITE_DEV`** on Adonis when you run Vite with HMR (see **Configuration**).
 
 ---
 
@@ -162,8 +162,10 @@ In development, the HTML shell at `/logs` loads scripts from the Vite dev server
 |----------|--------|---------|
 | `HOST`, `PORT` | `app/backend/.env` | URL of your Adonis server |
 | `APP_KEY` | `app/backend/.env` | Required Adonis secret; run `node ace generate:key` |
-| `LOGS_VITE_ORIGIN` | process env (Adonis) | Dev only; default `http://localhost:5173` |
-| `LOGS_VITE_BASE` | process env (Adonis) | Dev only; default `/logs/assets` (must match Vite `base`) |
+| `LOGS_VITE_DEV` | process env (Adonis) | Dev only; set to `1`, `true`, or `yes` to load `/logs` scripts from the Vite dev server (**`LOGS_VITE_ORIGIN`**) instead of same-origin **`/logs/assets/*`** |
+| `LOGS_VITE_ORIGIN` | process env (Adonis) | Only when **`LOGS_VITE_DEV`** is set; default `http://localhost:5173` |
+| `LOGS_VITE_BASE` | process env (Adonis) | Only when **`LOGS_VITE_DEV`** is set; default `/logs/assets` (must match Vite `base`) |
+| `LOGS_USE_BUILT_UI` | process env (Adonis) | Dev only; optional explicit `1` / `true` / `yes` to force built assets (e.g. overrides a set **`LOGS_VITE_DEV`**) |
 | `CORS_ORIGIN` | optional in `.env` | Comma-separated origins if you call the API from another host |
 
 Log files are read from **`logs/`** at the Adonis application root (`app.makePath('logs')`).
@@ -194,16 +196,25 @@ If you fork and change **`/logs`**, update **`base`** in **`app/frontend/vite.co
 - **`npm link` / folder install**: run **`npm run build`** in **adonis-log-viewer** so those files are generated locally.
 - Check the browser network tab for 404s on **`/logs/assets/...`**.
 
-### Dev mode can’t load Vite scripts
+### Dev mode can’t load Vite scripts (CORS / `localhost:5173`)
 
-- Start **`npm run dev:frontend`** and ensure **`LOGS_VITE_ORIGIN`** matches the Vite URL.
-- Firewall or Docker: expose **5173** if the browser loads the app from another host.
+**Default:** in development, **`/logs`** already uses same-origin **`/logs/assets/app.js`** (built UI). You only see **`http://localhost:5173/...`** if **`LOGS_VITE_DEV=1`** (or **`true`** / **`yes`**) is set on Adonis.
+
+If you **unset** **`LOGS_VITE_DEV`** and still get **`5173`** errors, restart the Adonis server and ensure you are on a build that includes this behavior. For path installs, run **`npm run build`** in **adonis-log-viewer** so **`resources/logs_viewer/app.js`** and **`app.css`** exist.
+
+**Using Vite + HMR:** set **`LOGS_VITE_DEV=1`**, start **`npm run dev:frontend`** (this repo) or your **`vite`** dev server, and set **`LOGS_VITE_ORIGIN`** to the origin **as the browser reaches it** (e.g. Docker: **`http://host.docker.internal:5173`**). Expose **`5173`** through firewalls and port mappings.
+
+Cross-origin **`<script type="module">`** loads can fail if Vite is not running; Firefox may show **“CORS request did not succeed”** with **`status: (null)`** when **`5173`** is unreachable.
+
+**Optional:** **`LOGS_USE_BUILT_UI=1`** forces built assets in dev even if **`LOGS_VITE_DEV`** is set.
+
+Adonis **`config/cors.ts`** does not apply to scripts served by Vite; this package’s **`app/frontend/vite.config.js`** sets **`server.cors`** for the Vite dev server.
 
 ---
 
 ## Contributing
 
-Please see **[CONTRIBUTING.md](CONTRIBUTING.md)** — structured like **[OPcodes Log Viewer CONTRIBUTING](https://github.com/opcodesio/log-viewer/blob/main/CONTRIBUTING.md)** but for npm, Vue, and Adonis.
+Please see **[CONTRIBUTING.md](https://github.com/vuenice/vue-nice-logs/blob/main/CONTRIBUTING.md)** — structured like **[OPcodes Log Viewer CONTRIBUTING](https://github.com/opcodesio/log-viewer/blob/main/CONTRIBUTING.md)** but for npm, Vue, and Adonis.
 
 ---
 
@@ -213,4 +224,4 @@ Please see **[CONTRIBUTING.md](CONTRIBUTING.md)** — structured like **[OPcodes
 
 ## License
 
-The MIT License — see **[LICENSE](LICENSE)**.
+The MIT License — see **[LICENSE](https://github.com/vuenice/vue-nice-logs/blob/main/LICENSE)**.

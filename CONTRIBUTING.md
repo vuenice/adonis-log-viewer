@@ -72,21 +72,17 @@ git checkout -b feature/your-feature-name
 npm run dev:backend
 ```
 
-**Terminal B — Vite** (loads the Vue app with HMR; the `/logs` page pulls scripts from the dev server unless you use production assets)
+**Terminal B — Vite** (HMR for the Vue app)
 
 ```bash
 npm run dev:frontend
 ```
 
-Open `http://localhost:3333/logs` (or whatever `HOST` / `PORT` you set in `app/backend/.env`). Optionally set **`LOGS_VITE_ORIGIN`** and **`LOGS_VITE_BASE`** on the backend if Vite runs on another origin or base path.
+In **`app/backend/.env`**, set **`LOGS_VITE_DEV=1`** so `/logs` loads scripts from the Vite dev server. Without it, `/logs` uses same-origin built **`/logs/assets/*`** (no Terminal B needed after **`npm run build:frontend`** once).
 
-To test **production-built** assets only:
+Open `http://localhost:3333/logs` (or whatever `HOST` / `PORT` you set in `app/backend/.env`). Optionally set **`LOGS_VITE_ORIGIN`** and **`LOGS_VITE_BASE`** if Vite runs on another origin or base path.
 
-```bash
-npm run build:frontend
-cd app/backend
-node ace serve --hmr
-```
+To test **production-built** assets only, omit **`LOGS_VITE_DEV`** (or unset it) and ensure **`npm run build:frontend`** has been run at least once.
 
 ### Step 6 — Lint and tests
 

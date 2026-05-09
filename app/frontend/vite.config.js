@@ -8,6 +8,13 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [vue(),tailwindcss(),],
   /**
+   * ES module scripts load from the Vite origin when `/logs` is opened on another port;
+   * explicit CORS avoids failures behind strict browsers or proxies.
+   */
+  server: {
+    cors: true,
+  },
+  /**
    * Build output is served by Adonis at `/logs/assets/*`.
    * - HTML shell is served at `/logs`
    * - JS/CSS are served by `LogsViewerController.asset()`

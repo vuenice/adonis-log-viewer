@@ -11,6 +11,14 @@
     "log viewer",
     "vue"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vuenice/vue-nice-logs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vuenice/vue-nice-logs/issues"
+  },
+  "homepage": "https://github.com/vuenice/vue-nice-logs#readme",
   "engines": {
     "node": ">=20.6.0",
     "npm": ">=10.0.0"
@@ -28,6 +36,7 @@
     }
   },
   "files": [
+    "CONTRIBUTING.md",
     "dist/controllers",
     "dist/providers",
     "resources/logs_viewer"

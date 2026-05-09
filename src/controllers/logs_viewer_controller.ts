@@ -9,13 +9,32 @@ const publicRoot = normalize(
   join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'resources', 'logs_viewer')
 )
 
+function envTruthy(name: string): boolean {
+  const v = process.env[name]
+  if (v === undefined) return false
+  return /^(1|true|yes)$/i.test(v.trim())
+}
+
+/** Optional override: force same-origin built assets in dev (e.g. if `LOGS_VITE_DEV` is set but you want a quick static check). */
+function logsUseBuiltUiFromEnv(): boolean {
+  return envTruthy('LOGS_USE_BUILT_UI')
+}
+
+/** Dev only: load `/logs` HTML from the Vite dev server (HMR). Default in development is built `/logs/assets/*` so consumers need no `:5173` process. */
+function logsViteDevFromEnv(): boolean {
+  return envTruthy('LOGS_VITE_DEV')
+}
+
 export default class LogsViewerController {
   async index({ response, containerResolver }: HttpContext) {
     response.type('text/html; charset=utf-8')
 
     const appInstance = (await containerResolver.make('app')) as { inProduction: boolean }
 
-    if (!appInstance.inProduction) {
+    const useViteDevShell =
+      !appInstance.inProduction && !logsUseBuiltUiFromEnv() && logsViteDevFromEnv()
+
+    if (useViteDevShell) {
       const viteOrigin = process.env.LOGS_VITE_ORIGIN ?? 'http://localhost:5173'
       const viteBase = process.env.LOGS_VITE_BASE ?? '/logs/assets'
 
