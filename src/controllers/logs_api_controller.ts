@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import { LogViewerRuntime } from '../bindings.js'
 import { createReadStream } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { basename, join, normalize } from 'node:path'
@@ -207,16 +208,20 @@ async function countLinesStreaming(logFilePath: string) {
 }
 
 export default class LogsApiController {
-  async files({ response, containerResolver }: HttpContext) {
-    const appInstance = (await containerResolver.make('app')) as { makePath(subPath: string): string }
-    const logsDir = appInstance.makePath('logs')
-    const files = await listLogFiles(logsDir)
+  private async logsDirectory({ containerResolver }: HttpContext) {
+    const runtime = await containerResolver.make(LogViewerRuntime)
+    return runtime.logsDirectory
+  }
+
+  async files(ctx: HttpContext) {
+    const { response } = ctx
+    const files = await listLogFiles(await this.logsDirectory(ctx))
     return response.ok({ logsDir: 'logs', files })
   }
 
-  async open({ request, response, containerResolver }: HttpContext) {
-    const appInstance = (await containerResolver.make('app')) as { makePath(subPath: string): string }
-    const logsDir = appInstance.makePath('logs')
+  async open(ctx: HttpContext) {
+    const { request, response } = ctx
+    const logsDir = await this.logsDirectory(ctx)
     const fileName = String(request.input('file') ?? '')
     const resolved = await resolveLogFile(logsDir, fileName)
     if (!resolved) return response.notFound({ message: 'Log file not found' })
@@ -239,9 +244,9 @@ export default class LogsApiController {
     return response.ok(body)
   }
 
-  async chunk({ request, response, containerResolver }: HttpContext) {
-    const appInstance = (await containerResolver.make('app')) as { makePath(subPath: string): string }
-    const logsDir = appInstance.makePath('logs')
+  async chunk(ctx: HttpContext) {
+    const { request, response } = ctx
+    const logsDir = await this.logsDirectory(ctx)
     const fileName = String(request.input('file') ?? '')
     const resolved = await resolveLogFile(logsDir, fileName)
     if (!resolved) return response.notFound({ message: 'Log file not found' })
@@ -269,9 +274,9 @@ export default class LogsApiController {
     })
   }
 
-  async count({ request, response, containerResolver }: HttpContext) {
-    const appInstance = (await containerResolver.make('app')) as { makePath(subPath: string): string }
-    const logsDir = appInstance.makePath('logs')
+  async count(ctx: HttpContext) {
+    const { request, response } = ctx
+    const logsDir = await this.logsDirectory(ctx)
     const fileName = String(request.input('file') ?? '')
     const resolved = await resolveLogFile(logsDir, fileName)
     if (!resolved) return response.notFound({ message: 'Log file not found' })

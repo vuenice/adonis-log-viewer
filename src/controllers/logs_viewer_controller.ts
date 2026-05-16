@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import { LogViewerRuntime } from '../bindings.js'
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { dirname, join, normalize } from 'node:path'
@@ -26,13 +27,13 @@ function logsViteDevFromEnv(): boolean {
 }
 
 export default class LogsViewerController {
-  async index({ response, containerResolver }: HttpContext) {
+  async index(ctx: HttpContext) {
+    const { response, containerResolver } = ctx
+    const runtime = await containerResolver.make(LogViewerRuntime)
     response.type('text/html; charset=utf-8')
 
-    const appInstance = (await containerResolver.make('app')) as { inProduction: boolean }
-
     const useViteDevShell =
-      !appInstance.inProduction && !logsUseBuiltUiFromEnv() && logsViteDevFromEnv()
+      !runtime.inProduction && !logsUseBuiltUiFromEnv() && logsViteDevFromEnv()
 
     if (useViteDevShell) {
       const viteOrigin = process.env.LOGS_VITE_ORIGIN ?? 'http://localhost:5173'
