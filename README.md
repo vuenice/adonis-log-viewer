@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <span><strong>AdonisJS 7.x</strong></span> ·
+  <span><strong>AdonisJS 6.x & 7.x</strong></span> ·
   <span><strong>Node.js ≥ 20.6</strong></span> ·
   <span><strong>npm ≥ 10</strong></span>
 </p>
@@ -43,17 +43,17 @@ Official deep documentation for this repo may grow over time; for now this READM
 
 | Requirement | Supported version |
 |-------------|-------------------|
-| AdonisJS | **7.x** (this repo tracks `@adonisjs/core` **^7.3**) |
+| AdonisJS | **6.x** or **7.x** (`@adonisjs/core` **^6.0** or **^7.0**; dev app uses **^7.3**) |
 | Node.js | **20.6 or newer** (recommended: **current Active LTS**, e.g. **22.x**) |
 | npm | **10 or newer** (ships with Node 20+); **pnpm/yarn** are fine if your team standardises on them |
 
-These match typical AdonisJS 7 tooling. The repository root `package.json` lists an **`engines`** field so `npm install` can warn when your runtime is too old.
+AdonisJS 7 apps typically use Node 24+; AdonisJS 6 apps often run on Node 20+. This package requires **Node ≥ 20.6** regardless of framework version. The repository root `package.json` lists an **`engines`** field so `npm install` can warn when your runtime is too old.
 
 ---
 
 ## Installation
 
-There are two ways people use Adonis Log Viewer: **run the full project from Git** (demo / reference app), or **wire the viewer into an existing Adonis 7 application**. Pick one.
+There are two ways people use Adonis Log Viewer: **run the full project from Git** (demo / reference app), or **wire the viewer into an existing Adonis 6 or 7 application**. Pick one.
 
 ### A. Run this repository as the app
 
@@ -82,7 +82,7 @@ There are two ways people use Adonis Log Viewer: **run the full project from Git
 
 4. Build this package (**UI + compiled provider**) and start the demo backend (see **[Usage](#usage)**).
 
-### B. Install into an existing Adonis 7 app (npm package)
+### B. Install into an existing Adonis 6 or 7 app (npm package)
 
 Adonis Log Viewer is an **npm package**: it bundles compiled server code (`dist/`), the built SPA (`resources/logs_viewer/`), and a **service provider** that registers **`/logs`** and **`/api/v1/logs`**. You do not copy controllers or routes into your app.
 
@@ -112,7 +112,7 @@ Adonis Log Viewer is an **npm package**: it bundles compiled server code (`dist/
 
 Restart your server and open **`{APP_URL}/logs`**.
 
-**Peers:** **`@adonisjs/core`** **^7.3** is already required by Adonis apps. **`mime-types`** is a dependency of **adonis-log-viewer**; you do **not** add it separately.
+**Peers:** **`@adonisjs/core`** **^6.0** or **^7.0** (your app already has this). **`mime-types`** is a dependency of **adonis-log-viewer**; you do **not** add it separately.
 
 ---
 
