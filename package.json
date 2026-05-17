@@ -39,6 +39,7 @@
     "CONTRIBUTING.md",
     "dist/controllers",
     "dist/providers",
+    "dist/bindings",
     "resources/logs_viewer"
   ],
   "peerDependencies": {
