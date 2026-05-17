@@ -39,7 +39,7 @@
     "CONTRIBUTING.md",
     "dist/controllers",
     "dist/providers",
-    "dist/bindings",
+    "dist/bindings.js",
     "dist/bindings.d.ts",
     "resources/logs_viewer"
   ],
