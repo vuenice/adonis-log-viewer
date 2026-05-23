@@ -1,6 +1,6 @@
 {
   "name": "adonis-log-viewer",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "AdonisJS log viewer — browser UI and API for logs under your app's logs directory",
   "type": "module",
   "license": "MIT",
