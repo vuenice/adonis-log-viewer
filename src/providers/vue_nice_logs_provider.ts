@@ -1,15 +1,19 @@
-import type { ApplicationService } from '@adonisjs/core/types'
 import { LogViewerRuntime } from '../bindings.js'
 
 const LogsViewerController = () => import('../controllers/logs_viewer_controller.js')
 const LogsApiController = () => import('../controllers/logs_api_controller.js')
 
-/**
- * Resolves host-app services from the container (not `@adonisjs/core/services/*`)
- * so `file:` / `npm link` installs do not load a second copy of `@adonisjs/core`.
- */
+interface AppContract {
+  container: {
+    bind(binding: any, resolver: () => any): void
+    make(binding: string): Promise<any>
+  }
+  makePath(...parts: string[]): string
+  inProduction: boolean
+}
+
 export default class VueNiceLogsProvider {
-  constructor(protected app: ApplicationService) {}
+  constructor(protected app: AppContract) {}
 
   register() {
     this.app.container.bind(LogViewerRuntime, () => {
