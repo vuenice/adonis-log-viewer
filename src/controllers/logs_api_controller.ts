@@ -21,7 +21,16 @@ type OpenResponse = {
 
 const DEFAULT_LIMIT = 200
 const MAX_LIMIT = 2000
-const READ_CHUNK_BYTES = 256 * 1024
+const READ_CHUNK_BYTES = 1024 * 1024      // 1 MB — 4× larger than before, fewer I/O round-trips
+const COUNT_CHUNK_BYTES = 8 * 1024 * 1024 // 8 MB — fast line counting for large files
+
+// In-memory column cache keyed by filePath:mtime.
+// Avoids re-deriving columns on every chunk request.
+const columnCache = new Map<string, string[]>()
+
+function columnCacheKey(filePath: string, mtimeMs: number) {
+  return `${filePath}:${mtimeMs}`
+}
 
 function safeBasename(name: string) {
   const base = basename(name || '')
@@ -31,8 +40,19 @@ function safeBasename(name: string) {
   return base
 }
 
+/**
+ * Format a single log line into a column-keyed row object.
+ * Fast path for non-JSON lines (HTML, plain text) skips JSON.parse entirely,
+ * avoiding the try/catch overhead that V8 pessimises in hot loops.
+ */
 function formatRow(line: string, columns: string[]): Record<string, string> {
   const first = columns[0] ?? 'raw'
+
+  if (!line.startsWith('{')) {
+    const row: Record<string, string> = { [first]: line }
+    for (const c of columns.slice(1)) row[c] = ''
+    return row
+  }
 
   try {
     const parsed = JSON.parse(line)
@@ -59,6 +79,23 @@ function formatRow(line: string, columns: string[]): Record<string, string> {
     for (const c of columns.slice(1)) row[c] = ''
     return row
   }
+}
+
+/** Infer column names by scanning sampled lines for the first valid JSON object. */
+function detectColumns(lines: string[]): string[] {
+  for (const line of lines) {
+    if (!line.startsWith('{')) continue
+    try {
+      const parsed = JSON.parse(line)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const keys = Object.keys(parsed as Record<string, unknown>)
+        if (keys.length) return keys
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return ['raw']
 }
 
 async function listLogFiles(logsDir: string): Promise<LogFileItem[]> {
@@ -93,13 +130,27 @@ async function resolveLogFile(logsDir: string, fileName: string) {
   }
 }
 
-async function readChunk(logFilePath: string, start: number, limit: number, columns: string[]) {
-  const rows: Record<string, string>[] = []
-  let cursor = Math.max(0, Number.isFinite(start) ? start : 0)
+/**
+ * Core streaming reader — returns raw (unformatted) lines plus byte-offset cursors.
+ *
+ * Reading raw lines first lets the caller detect columns from the batch and then
+ * format everything in one pass, eliminating the old double-read pattern
+ * (deriveColumns + readChunk were two separate stream reads of the same file).
+ *
+ * The 'close' event handler ensures the returned Promise always settles even when
+ * stream.destroy() is called mid-stream after the row limit is reached.
+ */
+async function readRawLines(
+  logFilePath: string,
+  start: number,
+  limit: number,
+): Promise<{ rawLines: string[]; cursor: number; nextCursor: number | null }> {
+  const rawLines: string[] = []
+  const cursor = Math.max(0, Number.isFinite(start) ? start : 0)
   let nextCursor: number | null = null
 
   const stream = createReadStream(logFilePath, { start: cursor, highWaterMark: READ_CHUNK_BYTES })
-  let carry: Buffer<ArrayBufferLike> = Buffer.alloc(0)
+  let carry: Buffer = Buffer.alloc(0)
   let dataStartOffset = cursor
   let absoluteReadOffset = cursor
 
@@ -111,74 +162,64 @@ async function readChunk(logFilePath: string, start: number, limit: number, colu
     }
   }
 
-  return await new Promise<{ rows: Record<string, string>[]; cursor: number; nextCursor: number | null }>(
-    (resolve, reject) => {
-      stream.on('data', (chunk: string | Buffer) => {
-        if (typeof chunk === 'string') {
-          chunk = Buffer.from(chunk)
-        }
-
-        const buf = chunk
-        if (rows.length >= limit) return
-
-        dataStartOffset = absoluteReadOffset - carry.length
-        absoluteReadOffset += buf.length
-
-        const data = carry.length ? Buffer.concat([carry, buf]) : buf
-        let lineStart = 0
-
-        for (let i = 0; i < data.length && rows.length < limit; i++) {
-          if (data[i] !== 0x0a) continue
-
-          let lineBuf = data.subarray(lineStart, i)
-          if (lineBuf.length && lineBuf[lineBuf.length - 1] === 0x0d) {
-            lineBuf = lineBuf.subarray(0, lineBuf.length - 1)
-          }
-
-          const line = lineBuf.toString('utf8')
-          rows.push(formatRow(line, columns))
-          nextCursor = dataStartOffset + i + 1
-          lineStart = i + 1
-        }
-
-        if (rows.length >= limit) {
-          closeStream()
-          return
-        }
-
-        carry = data.subarray(lineStart)
-      })
-
-      stream.on('end', () => {
-        if (rows.length < limit && carry.length) {
-          const line = carry.toString('utf8')
-          rows.push(formatRow(line, columns))
-          nextCursor = absoluteReadOffset
-        }
-
-        resolve({ rows, cursor, nextCursor })
-      })
-
-      stream.on('error', (err) => reject(err))
-    }
-  )
-}
-
-async function deriveColumns(logFilePath: string) {
-  const sample = await readChunk(logFilePath, 0, 50, ['raw'])
-  for (const row of sample.rows) {
-    const raw = row.raw ?? ''
-    try {
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const keys = Object.keys(parsed as Record<string, unknown>)
-        if (keys.length) return keys
+  let settled = false
+  return await new Promise((resolve, reject) => {
+    const finish = () => {
+      if (!settled) {
+        settled = true
+        resolve({ rawLines, cursor, nextCursor })
       }
-    } catch {
-      // ignore
     }
-  }
-  return ['raw']
+
+    stream.on('data', (chunk: string | Buffer) => {
+      if (typeof chunk === 'string') chunk = Buffer.from(chunk)
+      if (rawLines.length >= limit) return
+
+      dataStartOffset = absoluteReadOffset - carry.length
+      absoluteReadOffset += chunk.length
+
+      const data = carry.length ? Buffer.concat([carry, chunk]) : chunk
+      let lineStart = 0
+
+      for (let i = 0; i < data.length && rawLines.length < limit; i++) {
+        if (data[i] !== 0x0a) continue
+
+        let lineBuf = data.subarray(lineStart, i)
+        if (lineBuf.length && lineBuf[lineBuf.length - 1] === 0x0d) {
+          lineBuf = lineBuf.subarray(0, lineBuf.length - 1)
+        }
+
+        rawLines.push(lineBuf.toString('utf8'))
+        nextCursor = dataStartOffset + i + 1
+        lineStart = i + 1
+      }
+
+      if (rawLines.length >= limit) {
+        closeStream()
+        return
+      }
+
+      carry = data.subarray(lineStart)
+    })
+
+    stream.on('end', () => {
+      if (rawLines.length < limit && carry.length) {
+        rawLines.push(carry.toString('utf8'))
+        nextCursor = absoluteReadOffset
+      }
+      finish()
+    })
+
+    // 'close' fires after destroy() — guarantees the Promise always settles
+    stream.on('close', finish)
+
+    stream.on('error', (err) => {
+      if (!settled) {
+        settled = true
+        reject(err)
+      }
+    })
+  })
 }
 
 async function countLinesStreaming(logFilePath: string) {
@@ -186,7 +227,7 @@ async function countLinesStreaming(logFilePath: string) {
     let count = 0
     let lastByteWasNewline = false
 
-    const stream = createReadStream(logFilePath, { highWaterMark: 1024 * 1024 })
+    const stream = createReadStream(logFilePath, { highWaterMark: COUNT_CHUNK_BYTES })
     stream.on('data', (chunk: string | Buffer) => {
       const buf = typeof chunk === 'string' ? Buffer.from(chunk) : chunk
       for (let i = 0; i < buf.length; i++) {
@@ -229,16 +270,27 @@ export default class LogsApiController {
     const limitRaw = Number(request.input('limit') ?? DEFAULT_LIMIT)
     const limit = Math.min(MAX_LIMIT, Math.max(1, Number.isFinite(limitRaw) ? limitRaw : DEFAULT_LIMIT))
 
-    const columns = await deriveColumns(resolved.fullPath)
-    const chunk = await readChunk(resolved.fullPath, 0, limit, columns)
+    const cacheKey = columnCacheKey(resolved.fullPath, resolved.stat.mtimeMs)
+
+    // Single read pass: collect raw lines, detect columns, format — no double-read.
+    const { rawLines, cursor, nextCursor } = await readRawLines(resolved.fullPath, 0, limit)
+
+    let columns = columnCache.get(cacheKey) ?? null
+    if (!columns) {
+      columns = detectColumns(rawLines)
+      if (columnCache.size >= 50) columnCache.clear()
+      columnCache.set(cacheKey, columns)
+    }
+
+    const rows = rawLines.map((line) => formatRow(line, columns!))
 
     const body: OpenResponse = {
       file: { name: resolved.safeName, size: resolved.stat.size, mtimeMs: resolved.stat.mtimeMs },
       columns,
       limit,
-      cursor: chunk.cursor,
-      nextCursor: chunk.nextCursor,
-      rows: chunk.rows,
+      cursor,
+      nextCursor,
+      rows,
     }
 
     return response.ok(body)
@@ -258,19 +310,33 @@ export default class LogsApiController {
     const limit = Math.min(MAX_LIMIT, Math.max(1, Number.isFinite(limitRaw) ? limitRaw : DEFAULT_LIMIT))
 
     const columnsRaw = request.input('columns')
-    const columns =
-      Array.isArray(columnsRaw) && columnsRaw.every((c) => typeof c === 'string') && columnsRaw.length
-        ? (columnsRaw as string[])
-        : await deriveColumns(resolved.fullPath)
+    let columns: string[]
+    if (Array.isArray(columnsRaw) && columnsRaw.every((c) => typeof c === 'string') && columnsRaw.length) {
+      columns = columnsRaw as string[]
+    } else {
+      // Check column cache before falling back to a file scan
+      const cacheKey = columnCacheKey(resolved.fullPath, resolved.stat.mtimeMs)
+      const cached = columnCache.get(cacheKey)
+      if (cached) {
+        columns = cached
+      } else {
+        const sample = await readRawLines(resolved.fullPath, 0, 50)
+        columns = detectColumns(sample.rawLines)
+        if (columnCache.size >= 50) columnCache.clear()
+        columnCache.set(cacheKey, columns)
+      }
+    }
 
-    const chunk = await readChunk(resolved.fullPath, cursor, limit, columns)
+    const { rawLines, nextCursor } = await readRawLines(resolved.fullPath, cursor, limit)
+    const rows = rawLines.map((line) => formatRow(line, columns))
+
     return response.ok({
       file: { name: resolved.safeName, size: resolved.stat.size, mtimeMs: resolved.stat.mtimeMs },
       columns,
       limit,
-      cursor: chunk.cursor,
-      nextCursor: chunk.nextCursor,
-      rows: chunk.rows,
+      cursor,
+      nextCursor,
+      rows,
     })
   }
 
