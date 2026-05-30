@@ -1,6 +1,6 @@
 <!-- LogTable.vue -->
 <script setup>
-import { ref, watch, onUnmounted, defineProps, defineEmits } from 'vue'
+import { ref, computed, watch, onUnmounted, defineProps, defineEmits } from 'vue'
 import SortIcon from './SortIcon.vue'
 
 /* Define Props */
@@ -28,6 +28,11 @@ const emit = defineEmits(['sort-by', 'page-size-changed'])
 
 const TIME_COLUMNS = new Set(['time', 'timestamp'])
 const MESSAGE_COLUMNS = new Set(['msg', 'message'])
+const VISIBLE_COLUMNS = new Set(['level', 'time', 'msg', 'message'])
+
+const displayColumns = computed(() =>
+  props.columns.filter(col => VISIBLE_COLUMNS.has(String(col).toLowerCase()))
+)
 
 const modalOpen = ref(false)
 const modalTitle = ref('')
@@ -37,15 +42,19 @@ function isMessageColumn(col) {
   return MESSAGE_COLUMNS.has(String(col).toLowerCase())
 }
 
-function fullCellText(col, raw) {
-  if (raw === null || raw === undefined) return ''
-  if (typeof raw === 'object') return JSON.stringify(raw, null, 2)
-  return String(formatCell(col, raw))
-}
-
-function openMessageModal(col, raw) {
-  modalTitle.value = String(col)
-  modalBody.value = fullCellText(col, raw)
+function openLogModal(log) {
+  const msg = log?.msg ?? log?.message ?? ''
+  modalTitle.value = msg ? String(msg).slice(0, 80) : 'Log Entry'
+  const raw = log?._raw
+  if (raw && raw.startsWith('{')) {
+    try {
+      modalBody.value = JSON.stringify(JSON.parse(raw), null, 2)
+    } catch {
+      modalBody.value = raw
+    }
+  } else {
+    modalBody.value = raw ?? JSON.stringify(log, null, 2)
+  }
   modalOpen.value = true
 }
 
@@ -53,9 +62,11 @@ function closeMessageModal() {
   modalOpen.value = false
 }
 
-function headerCellClass(col, idx) {
-  if (isMessageColumn(col)) return 'w-[45%] min-w-0'
-  if (idx === 0) return 'w-[18%] min-w-0'
+function headerCellClass(col) {
+  if (isMessageColumn(col)) return 'w-[55%] min-w-0'
+  const key = String(col).toLowerCase()
+  if (key === 'level') return 'w-[8%] min-w-0'
+  if (TIME_COLUMNS.has(key)) return 'w-[20%] min-w-0'
   return 'min-w-0'
 }
 
@@ -135,7 +146,7 @@ function formatCell(col, value) {
             </button>
           </div>
           <div class="overflow-auto p-4 text-xs text-gray-800 dark:text-gray-200">
-            <pre class="whitespace-pre-wrap break-words font-sans m-0">{{ modalBody }}</pre>
+            <pre class="whitespace-pre-wrap break-words font-mono m-0">{{ modalBody }}</pre>
           </div>
         </div>
       </div>
@@ -145,31 +156,30 @@ function formatCell(col, value) {
       <thead>
         <tr>
           <th
-            v-for="(col, idx) in props.columns"
+            v-for="col in displayColumns"
             :key="col"
             class="p-1.5 font-semibold text-xs cursor-pointer select-none"
-            :class="headerCellClass(col, idx)"
+            :class="headerCellClass(col)"
             @click="() => emit('sort-by', col)"
           >
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center space-x-1">
-                <span class="truncate">{{ col }}</span>
-                <SortIcon :field="col" :sortField="sortField" :sortDir="sortDir" />
-              </div>
-
-              <div v-if="idx === props.columns.length - 1" class="flex items-center space-x-2 ml-2">
-                <select
-                  class="p-1 text-xs dark:text-gray-300"
-                  @change="e => emit('page-size-changed', parseInt(e.target.value))"
-                  @click.stop
-                >
-                  <option value="50">50</option>
-                  <option value="100">100</option>
-                  <option value="200" selected>200</option>
-                  <option value="500">500</option>
-                  <option value="1000">1000</option>
-                </select>
-              </div>
+            <div class="flex items-center space-x-1">
+              <span class="truncate">{{ col }}</span>
+              <SortIcon :field="col" :sortField="sortField" :sortDir="sortDir" />
+            </div>
+          </th>
+          <th class="p-1.5 font-semibold text-xs w-[17%] text-center select-none">
+            <div class="flex items-center justify-center gap-2">
+              <span>Actions</span>
+              <select
+                class="p-1 text-xs dark:text-gray-300"
+                @change="e => emit('page-size-changed', parseInt(e.target.value))"
+              >
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200" selected>200</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+              </select>
             </div>
           </th>
         </tr>
@@ -185,21 +195,23 @@ function formatCell(col, value) {
             : 'bg-white dark:bg-gray-700'"
         >
           <td
-            v-for="col in props.columns"
+            v-for="col in displayColumns"
             :key="col"
             class="p-1.5 text-xs align-top min-w-0"
-            :class="isMessageColumn(col) ? '' : 'break-words whitespace-pre-wrap'"
+            :class="isMessageColumn(col) ? 'truncate max-w-0' : 'break-words whitespace-pre-wrap'"
           >
-            <button
+            <span
               v-if="isMessageColumn(col)"
-              type="button"
-              class="w-full max-w-full text-left truncate text-gray-800 dark:text-gray-100 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 rounded-sm"
-              :title="'View full ' + col"
-              @click="openMessageModal(col, log?.[col])"
-            >
-              {{ formatCell(col, log?.[col]) }}
-            </button>
+              class="block truncate text-gray-800 dark:text-gray-100"
+            >{{ formatCell(col, log?.[col]) }}</span>
             <template v-else>{{ formatCell(col, log?.[col]) }}</template>
+          </td>
+          <td class="p-1.5 text-xs align-top text-center w-16">
+            <button
+              type="button"
+              class="text-blue-600 dark:text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 rounded-sm"
+              @click="openLogModal(log)"
+            >view</button>
           </td>
         </tr>
       </tbody>

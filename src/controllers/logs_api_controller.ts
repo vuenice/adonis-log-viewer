@@ -49,7 +49,7 @@ function formatRow(line: string, columns: string[]): Record<string, string> {
   const first = columns[0] ?? 'raw'
 
   if (!line.startsWith('{')) {
-    const row: Record<string, string> = { [first]: line }
+    const row: Record<string, string> = { _raw: line, [first]: line }
     for (const c of columns.slice(1)) row[c] = ''
     return row
   }
@@ -61,7 +61,7 @@ function formatRow(line: string, columns: string[]): Record<string, string> {
     }
 
     const obj = parsed as Record<string, unknown>
-    const row: Record<string, string> = {}
+    const row: Record<string, string> = { _raw: line }
     for (const c of columns) {
       if (Object.prototype.hasOwnProperty.call(obj, c)) {
         const v = obj[c]
@@ -74,7 +74,7 @@ function formatRow(line: string, columns: string[]): Record<string, string> {
     }
     return row
   } catch {
-    const row: Record<string, string> = {}
+    const row: Record<string, string> = { _raw: line }
     row[first] = line
     for (const c of columns.slice(1)) row[c] = ''
     return row

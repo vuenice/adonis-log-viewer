@@ -3,7 +3,8 @@
     "allow": [
       "Bash(Get-ChildItem -Recurse -Depth 2)",
       "Bash(Select-Object FullName)",
-      "PowerShell(head -100)"
+      "PowerShell(head -100)",
+      "Bash(Get-ChildItem -Path \"c:\\\\laragon\\\\www\\\\adonis-log-viewer\" -Recurse -Depth 2)"
     ]
   }
 }
