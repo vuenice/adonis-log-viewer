@@ -6,10 +6,10 @@
   "license": "MIT",
   "description": "Sample Adonis 7 app that installs adonis-log-viewer from the repo root via file:.. (same as npm install ../ from this folder)",
   "scripts": {
-    "start": "node bin/server.js",
+    "start": "node api.js && node bin/server.js",
     "build": "node ace.js build",
-    "dev": "concurrently -k -n adonis,vite -c blue,green \"node ace.js serve --watch\" \"npm --prefix .. run dev -w frontend\"",
-    "dev:server": "node ace.js serve --watch",
+    "dev": "node api.js && concurrently -k -n adonis,vite -c blue,green \"node ace.js serve --watch\" \"npm --prefix .. run dev -w frontend\"",
+    "dev:server": "node api.js && node ace.js serve --watch",
     "typecheck": "tsc --noEmit"
   },
   "imports": {
