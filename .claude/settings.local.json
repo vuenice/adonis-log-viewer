@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); exports=d.get\\('exports',{}\\); keys=[k for k in exports if 'provider' in k]; print\\(keys[:5]\\); print\\(json.dumps\\(exports.get\\(keys[0]\\) if keys else None, indent=2\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('type:', d.get\\('type','commonjs'\\)\\); print\\('deps adonis-log-viewer:', d.get\\('dependencies',{}\\).get\\('adonis-log-viewer'\\) or d.get\\('devDependencies',{}\\).get\\('adonis-log-viewer'\\)\\)\")"
     ]
   }
 }

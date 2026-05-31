@@ -1,6 +1,6 @@
 {
   "name": "adonis-log-viewer",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "AdonisJS log viewer — browser UI and API for logs under your app's logs directory",
   "type": "module",
   "license": "MIT",
@@ -26,14 +26,8 @@
   "main": "./dist/providers/vue_nice_logs_provider.js",
   "types": "./dist/providers/vue_nice_logs_provider.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/providers/vue_nice_logs_provider.d.ts",
-      "default": "./dist/providers/vue_nice_logs_provider.js"
-    },
-    "./provider": {
-      "types": "./dist/providers/vue_nice_logs_provider.d.ts",
-      "default": "./dist/providers/vue_nice_logs_provider.js"
-    }
+    ".": "./dist/providers/vue_nice_logs_provider.js",
+    "./provider": "./dist/providers/vue_nice_logs_provider.js"
   },
   "files": [
     "CONTRIBUTING.md",
