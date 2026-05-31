@@ -9,9 +9,9 @@
     "./registry": "./.adonisjs/client/registry/index.ts"
   },
   "scripts": {
-    "start": "node bin/server.js",
+    "start": "node api.js && node bin/server.js",
     "build": "node ace build",
-    "dev": "node ace serve --hmr",
+    "dev": "node api.js && node ace serve --hmr",
     "test": "node ace test",
     "lint": "oxlint .",
     "typecheck": "tsc --noEmit"
