@@ -179,7 +179,7 @@ After **`npm install adonis-log-viewer`**:
 1. Add **`() => import('adonis-log-viewer/provider')`** to **`providers`** in **`adonisrc.ts`**.
 2. **`files` published with the package:** route registration is handled by **`VueNiceLogsProvider`** (**`start`** hook → **`Router`**).
 
-If you fork and change **`/logs`**, update **`base`** in **`app/frontend/vite.config.js`**, **`npm run build`** at repo root (so **`resources/logs_viewer/`** and matching URLs stay aligned), and adjust the prefixes in **`src/providers/vue_nice_logs_provider.ts`** before **`npm publish`** / linking.
+If you fork and change **`/logs`**, update **`base`** in **`app/frontend/vite.config.js`**, **`npm run build`** at repo root (so **`resources/logs_viewer/`** and matching URLs stay aligned), and adjust the prefixes in **`src/providers/adonis_log_viewer_provider.ts`** before **`npm publish`** / linking.
 
 ---
 
