@@ -55,13 +55,13 @@
     "example"
   ],
   "scripts": {
-    "dev": "node init && npm run dev -w frontend",
-    "dev:frontend": "node init && npm run dev -w frontend",
-    "dev:backend": "node init && npm run dev -w backend",
-    "build": "node init && npm run build:frontend && npm run build:package",
-    "build:frontend": "node init && npm run build -w frontend",
-    "build:package": "node init && tsc -p tsconfig.package.json",
-    "build:backend": "node init && npm run build -w backend",
+    "dev": "npm run dev -w frontend",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "build": "npm run build:frontend && npm run build:package",
+    "build:frontend": "npm run build -w frontend",
+    "build:package": "tsc -p tsconfig.package.json",
+    "build:backend": "npm run build -w backend",
     "prepublishOnly": "npm run build",
     "lint": "npm run lint --workspaces"
   },
